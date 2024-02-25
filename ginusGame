@@ -1,0 +1,216 @@
+#define LED_BRANCO  2
+#define LED_AMARELO  3
+#define LED_AZUL  4
+#define LED_VERMELHO  5
+
+#define BT_BRANCO  9
+#define BT_AMARELO  10
+#define BT_AZUL  11
+#define BT_VERMELHO  12
+
+#define AGUARDANDO -1
+
+#define BUZZER 13
+
+#define UM_SEG  1000
+#define MEIO_SEG  250
+#define UM_QUARTO_SEG 100
+
+#define TAMANHO_SEQUENCIA 4
+
+int sequenciaLuzes[TAMANHO_SEQUENCIA];
+
+int rodada = 0;
+
+int leds_respondidos = 0;
+
+enum Estados {
+  PRONTO_PROXIMA_RODADA,
+  JOGADOR_RESPONDENDO,
+  VITORIA,
+  GAME_OVER
+};
+
+void setup() {
+  Serial.begin(9600);
+  iniciaPortas();
+  comecoJogo();
+  tocarBuzzer(1000);
+}
+
+void iniciaPortas(){
+  pinMode(LED_BRANCO, OUTPUT);
+  pinMode(LED_AMARELO, OUTPUT);
+  pinMode(LED_AZUL, OUTPUT);
+  pinMode(LED_VERMELHO, OUTPUT);
+
+  pinMode(BT_BRANCO, INPUT_PULLUP);
+  pinMode(BT_AMARELO, INPUT_PULLUP);
+  pinMode(BT_AZUL, INPUT_PULLUP);
+  pinMode(BT_VERMELHO, INPUT_PULLUP);
+
+  pinMode(BUZZER, OUTPUT);
+}
+
+void loop() {
+  switch(estadoAtual()){
+    case PRONTO_PROXIMA_RODADA:
+      Serial.println("Proxima rodada");
+      preparaRodada();
+      break;
+
+    case JOGADOR_RESPONDENDO:
+      Serial.println("Jogador Respodendo");
+      checaResposta();
+      break;
+      
+    case GAME_OVER:
+      Serial.println("GAME OVER");
+      rodada = 0;
+      leds_respondidos = 0;
+      gameOver();
+      delay(MEIO_SEG);
+      break;
+
+    case VITORIA:
+      Serial.println("Vitoria");
+      comecoJogo();
+      break;
+  }
+  delay(1000);
+}
+
+int estadoAtual(){
+  if (rodada <= 30){
+    if(leds_respondidos == rodada){
+      return PRONTO_PROXIMA_RODADA;
+    }
+    if (leds_respondidos == -2){
+      return GAME_OVER;
+    }
+    else{
+      return JOGADOR_RESPONDENDO;
+    }
+  }else{
+    return VITORIA;
+  }
+}
+
+void preparaRodada(){
+  rodada ++;
+  ledsRodada();
+  leds_respondidos = 0;
+}
+
+void checaResposta(){
+  int resposta = respostaJogador();
+
+  if (resposta == AGUARDANDO){
+    return;
+  }
+
+  if (resposta == sequenciaLuzes[leds_respondidos]){
+    leds_respondidos ++;
+  }else{
+    Serial.println("Resposta errada");
+    leds_respondidos = -2;
+  }
+  
+
+}
+
+void ledsRodada(){
+  int jogo = analogRead(0);
+  randomSeed(jogo);
+
+  for (int i=0;i<rodada;i++){
+    sequenciaLuzes[i] = piscaLed(sorteiaCores());
+  }
+}
+
+int sorteiaCores(){
+  return random(LED_BRANCO, LED_VERMELHO + 1);
+}
+
+
+
+int respostaJogador(){
+  if (digitalRead(BT_BRANCO) == LOW){
+      return piscaLed(LED_BRANCO);
+  }
+  if (digitalRead(BT_AMARELO) == LOW){
+      return piscaLed(LED_AMARELO);
+  }
+  if (digitalRead(BT_AZUL) == LOW){
+      return piscaLed(LED_AZUL);
+  }
+  if (digitalRead(BT_VERMELHO) == LOW){
+      return piscaLed(LED_VERMELHO);
+  } 
+  else {
+    return AGUARDANDO;
+  }
+}
+
+void comecoJogo(){
+
+  tocarBuzzer(5000);
+
+  digitalWrite(LED_BRANCO, HIGH);
+  digitalWrite(LED_AZUL, HIGH);
+  digitalWrite(LED_AMARELO, HIGH);
+  digitalWrite(LED_VERMELHO, HIGH);
+  delay(MEIO_SEG);
+  digitalWrite(LED_AMARELO, LOW);
+  digitalWrite(LED_VERMELHO, LOW);
+  digitalWrite(LED_BRANCO, LOW);
+  digitalWrite(LED_AZUL, LOW);
+  delay(UM_QUARTO_SEG);
+  
+}
+
+void gameOver(){
+  for(int i = LED_BRANCO; i <= LED_VERMELHO; i++){
+    somLeds(i);
+    digitalWrite(i, HIGH);
+    delay(MEIO_SEG);
+    digitalWrite(i, LOW);
+  }
+
+  comecoJogo();
+}
+
+int piscaLed(int portaLed){
+
+  somLeds(portaLed);
+
+  digitalWrite(portaLed,HIGH);
+  delay(UM_SEG);
+  digitalWrite(portaLed, LOW);
+  delay(MEIO_SEG);
+  return portaLed;
+}
+
+void somLeds(int portaLed){
+  switch(portaLed){
+    case LED_BRANCO:
+      tocarBuzzer(2000);
+      break;
+ 
+  case LED_AMARELO:
+      tocarBuzzer(2500);
+      break;
+  
+  case LED_AZUL:
+      tocarBuzzer(3000);
+      break;
+
+  case LED_VERMELHO:
+      tocarBuzzer(3500);
+      break;
+  }
+}
+
+void tocarBuzzer(int frequencia){
+  tone(BUZZER, frequencia, 100);
+}
